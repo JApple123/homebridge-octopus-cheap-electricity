@@ -1,5 +1,6 @@
 const API_BASE_URL = 'https://api.octopus.energy/v1';
 const GRAPHQL_URL = `${API_BASE_URL}/graphql/`;
+const INTELLIGENT_GO_SCHEDULE_CACHE_MS = 10 * 60 * 1000;
 
 interface OctopusAgreement {
   tariff_code: string;
@@ -81,6 +82,11 @@ interface OctopusSmartFlexDispatchesResponse {
   flexPlannedDispatches?: OctopusSmartFlexDispatch[] | null;
 }
 
+interface IntelligentGoScheduleCache {
+  dispatches: OctopusSmartFlexDispatch[];
+  expiresAt: number;
+}
+
 type IntelligentGoRatePeriod = 'day' | 'overnight off-peak' | 'smart charging';
 
 export interface CurrentEnergyPrice {
@@ -106,11 +112,15 @@ export class OctopusClient {
   private graphqlAccessTokenExpiresAt = 0;
   private graphqlRefreshToken?: string;
   private graphqlRefreshTokenExpiresAt = 0;
+  private graphqlAuthenticationBlockedUntil = 0;
+  private scheduleCache?: IntelligentGoScheduleCache;
+  private scheduleRefreshPromise?: Promise<OctopusSmartFlexDispatch[]>;
 
   constructor(
     private readonly apiKey: string,
     private readonly accountNumber: string,
     private readonly configuredTariffCode?: string,
+    private readonly debugLog?: (message: string) => void,
   ) { }
 
   /**
@@ -218,7 +228,8 @@ export class OctopusClient {
       );
     }
 
-    const smartDispatches = await this.getSmartDispatches(now);
+    const isNightRate = this.isIntelligentGoHomeOffPeak(now);
+    const smartDispatches = isNightRate ? [] : await this.getSmartDispatches(now);
     const isSmartCharging = smartDispatches.some((dispatch) => {
       const start = new Date(dispatch.start).getTime();
       const end = new Date(dispatch.end).getTime();
@@ -228,7 +239,6 @@ export class OctopusClient {
         && start <= now.getTime()
         && now.getTime() < end;
     });
-    const isNightRate = this.isIntelligentGoHomeOffPeak(now);
     const useNightRate = isSmartCharging || isNightRate;
     const priceIncVat = useNightRate ? tariff.nightRate : tariff.dayRate;
     const priceExcVat = useNightRate
@@ -250,6 +260,33 @@ export class OctopusClient {
   }
 
   private async getSmartDispatches(now: Date): Promise<OctopusSmartFlexDispatch[]> {
+    if (this.scheduleCache && now.getTime() < this.scheduleCache.expiresAt) {
+      this.debugLog?.('Reusing cached Intelligent Go smart-charging schedule.');
+      return this.scheduleCache.dispatches;
+    }
+
+    if (this.scheduleRefreshPromise) {
+      this.debugLog?.('Waiting for the existing Intelligent Go schedule refresh.');
+      return this.scheduleRefreshPromise;
+    }
+
+    this.scheduleRefreshPromise = this.fetchSmartDispatches(now)
+      .then((dispatches) => {
+        this.scheduleCache = {
+          dispatches,
+          expiresAt: Date.now() + INTELLIGENT_GO_SCHEDULE_CACHE_MS,
+        };
+        this.debugLog?.('Refreshed the Intelligent Go smart-charging schedule cache.');
+        return dispatches;
+      })
+      .finally(() => {
+        this.scheduleRefreshPromise = undefined;
+      });
+
+    return this.scheduleRefreshPromise;
+  }
+
+  private async fetchSmartDispatches(now: Date): Promise<OctopusSmartFlexDispatch[]> {
     const deviceQuery = `query Devices($accountNumber: String!) {
       devices(accountNumber: $accountNumber) {
         __typename
@@ -305,11 +342,7 @@ export class OctopusClient {
     action: string,
   ): void {
     if (response.errors?.length) {
-      throw new OctopusApiError(
-        `Octopus GraphQL API could not ${action}: ${response.errors
-          .map((error) => error.message ?? 'Unknown GraphQL error')
-          .join('; ')}`,
-      );
+      throw new OctopusApiError(`Octopus GraphQL API could not ${action}.`);
     }
   }
 
@@ -473,6 +506,13 @@ export class OctopusClient {
   }
 
   private async getGraphqlAccessToken(): Promise<string> {
+    if (Date.now() < this.graphqlAuthenticationBlockedUntil) {
+      throw new OctopusApiError(
+        'Octopus GraphQL authentication is temporarily backed off after a failed attempt.',
+        401,
+      );
+    }
+
     // Refresh a little before the documented one-hour access-token expiry.
     if (this.graphqlAccessToken && Date.now() < this.graphqlAccessTokenExpiresAt) {
       return this.graphqlAccessToken;
@@ -490,15 +530,28 @@ export class OctopusClient {
     const input = useRefreshToken
       ? { refreshToken: this.graphqlRefreshToken }
       : { APIKey: this.apiKey };
-    const response = await this.fetchJson<OctopusGraphqlResponse<OctopusKrakenTokenResponse>>(
-      GRAPHQL_URL,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, variables: { input } }),
-      },
-    );
-    this.throwGraphqlErrors(response, 'obtain GraphQL credentials');
+    let response: OctopusGraphqlResponse<OctopusKrakenTokenResponse>;
+    try {
+      response = await this.fetchJson<OctopusGraphqlResponse<OctopusKrakenTokenResponse>>(
+        GRAPHQL_URL,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, variables: { input } }),
+        },
+      );
+      this.throwGraphqlErrors(response, 'obtain GraphQL credentials');
+    } catch (error) {
+      if (error instanceof OctopusApiError
+        && (error.status === 401 || error.status === 403 || error.message.includes('credentials'))) {
+        this.graphqlAuthenticationBlockedUntil = Date.now() + 5 * 60 * 1000;
+        throw new OctopusApiError(
+          'Octopus GraphQL authentication failed; retrying after a short backoff.',
+          error.status,
+        );
+      }
+      throw error;
+    }
 
     const result = response.data?.obtainKrakenToken;
     if (!result?.token) {

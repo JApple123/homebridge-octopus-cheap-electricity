@@ -45,7 +45,7 @@
       "updateInterval": {
         "title": "Update Interval (seconds)",
         "type": "integer",
-        "default": 60,
+        "default": 300,
         "minimum": 30,
         "maximum": 3600,
         "step": 30,

@@ -20,6 +20,10 @@ test('cheap state maps to Contact Sensor state', () => {
   assert.equal(contactSensorState(false, contactStates), contactStates.CONTACT_NOT_DETECTED);
 });
 
+test('closed means electricity is above the threshold', () => {
+  assert.equal(contactSensorState(isCheapPrice(15.2, 10), contactStates), contactStates.CONTACT_NOT_DETECTED);
+});
+
 test('configuration validation rejects missing credentials and invalid values', () => {
   const validConfig = {
     apiKey: 'fake-key',

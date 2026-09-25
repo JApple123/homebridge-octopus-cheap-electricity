@@ -40,7 +40,20 @@ export class OctopusEnergyAccessory {
     this.platform.log.debug(
       `Electricity price is ${price.toFixed(2)}p/kWh; ` +
       `threshold is ${this.platform.config.threshold.toFixed(2)}p/kWh; ` +
-      `cheap energy is ${isCheap ? 'detected' : 'not detected'}.`,
+      `state is ${isCheap ? 'OPEN / CONTACT_DETECTED (cheap)' : 'CLOSED / CONTACT_NOT_DETECTED (above threshold)'}.`,
+    );
+  }
+
+  setUnavailableState(): void {
+    this.service
+      .getCharacteristic(this.platform.Characteristic.ContactSensorState)
+      .updateValue(contactSensorState(
+        false,
+        this.platform.Characteristic.ContactSensorState,
+      ));
+
+    this.platform.log.debug(
+      'Octopus API request failed; defaulting to CLOSED / CONTACT_NOT_DETECTED.',
     );
   }
 

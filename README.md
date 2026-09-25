@@ -9,7 +9,7 @@ The plugin exposes a single HomeKit **Contact Sensor** whose state represents wh
 For example, with:
 
 - Threshold: `10` p/kWh
-- Update interval: `60` seconds
+- Update interval: `300` seconds (5 minutes)
 
 the accessory will be:
 
@@ -18,7 +18,7 @@ the accessory will be:
 
 The Contact Sensor is a **read-only representation of an external state**. Contact Detected means electricity is cheap. The plugin does not control your tariff or supply.
 
-The plugin currently uses Octopus Energy's REST API. It discovers the current import electricity tariff from the account endpoint unless a tariff code is supplied manually.
+The plugin currently uses Octopus Energy's REST API. It discovers the current import electricity tariff from the account endpoint unless a tariff code is supplied manually. It polls every five minutes by default and keeps Intelligent Go charging schedules cached for ten minutes.
 
 ## Requirements
 
@@ -50,7 +50,7 @@ Add the platform in Homebridge Config UI or use a configuration like this with f
       "apiKey": "YOUR_API_KEY",
       "accountNumber": "A-XXXXXXXX",
       "threshold": 10,
-      "updateInterval": 60
+      "updateInterval": 300
     }
   ]
 }
@@ -101,7 +101,7 @@ Example:
       "apiKey": "YOUR_OCTOPUS_API_KEY",
       "accountNumber": "A-XXXXXXXX",
       "threshold": 10,
-      "updateInterval": 60
+      "updateInterval": 300
     }
   ]
 }
@@ -141,6 +141,7 @@ Do **not** commit your real API key or account number.
 - No current price: wait for the next poll and check the Octopus API status.
 - Plugin not appearing: confirm the platform name is exactly `OctopusEnergy`, then restart Homebridge.
 - API temporarily unavailable: the sensor is marked unavailable and polling continues automatically.
+- Stale state warning: after an extended outage, the retained sensor state is marked unavailable until a fresh price is retrieved.
 
 ## Octopus API
 

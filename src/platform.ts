@@ -14,6 +14,9 @@ import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js';
 import { isCheapPrice } from './state.js';
 import { validateConfig } from './validation.js';
 
+const DEFAULT_UPDATE_INTERVAL_SECONDS = 5 * 60;
+const MAX_STATE_AGE_MS = 20 * 60 * 1000;
+
 export interface OctopusEnergyConfig extends PlatformConfig {
   name: string;
   apiKey: string;
@@ -34,6 +37,7 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
   private readonly octopus: OctopusClient;
   private accessoryHandler?: OctopusEnergyAccessory;
   private updateTimer?: NodeJS.Timeout;
+  private lastSuccessfulUpdateAt?: number;
 
   constructor(
     public readonly log: Logging,
@@ -47,7 +51,7 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
       ...config,
       name: config.name ?? 'Cheap Electricity',
       threshold: Number(config.threshold ?? 10),
-      updateInterval: Number(config.updateInterval ?? 60),
+      updateInterval: Number(config.updateInterval ?? DEFAULT_UPDATE_INTERVAL_SECONDS),
     } as OctopusEnergyConfig;
 
     validateConfig(this.config);
@@ -56,6 +60,7 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
       this.config.apiKey,
       this.config.accountNumber,
       this.config.tariffCode,
+      (message) => this.log.debug(message),
     );
 
     this.api.on('didFinishLaunching', () => {
@@ -130,6 +135,7 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
 
       this.accessoryHandler.updateState(isCheap, currentPrice.priceIncVat);
       this.accessoryHandler.markAvailable();
+      this.lastSuccessfulUpdateAt = Date.now();
 
       this.log.debug(
         `Current Octopus electricity price: ${currentPrice.priceIncVat.toFixed(2)}p/kWh ` +
@@ -138,7 +144,15 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
           : ''}).`,
       );
     } catch (error) {
+      this.accessoryHandler.setUnavailableState();
       this.accessoryHandler.markUnavailable();
+
+      const stateAge = this.lastSuccessfulUpdateAt
+        ? Date.now() - this.lastSuccessfulUpdateAt
+        : undefined;
+      if (stateAge === undefined || stateAge > MAX_STATE_AGE_MS) {
+        this.log.warn('Octopus Energy state is stale because no recent price was retrieved.');
+      }
 
       this.log.error(
         `Failed to update Octopus Energy state: ${error instanceof Error ? error.message : String(error)
