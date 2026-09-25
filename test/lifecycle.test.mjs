@@ -245,7 +245,7 @@ test('a cached accessory is initialized on didFinishLaunching without duplicatin
 
     const service = accessory.getService('ContactSensor');
     assert.ok(service);
-    assert.equal(service.characteristics.get(CONTACT_SENSOR_STATE).value, CONTACT_DETECTED);
+    assert.equal(service.characteristics.get(CONTACT_SENSOR_STATE).value, CONTACT_NOT_DETECTED);
     assert.equal(service.characteristics.get(STATUS_FAULT).value, 0);
     assert.equal(priceRequests, 1);
     assert.equal(platform.accessories.size, 1);
@@ -322,13 +322,13 @@ test('a failed update preserves the prior state and later success restores avail
 
     await platform.updateState();
     assert.equal(contactSensor.getCharacteristic(STATUS_FAULT).value, 0);
-    assert.equal(contactSensor.getCharacteristic(CONTACT_SENSOR_STATE).value, CONTACT_DETECTED);
+    assert.equal(contactSensor.getCharacteristic(CONTACT_SENSOR_STATE).value, CONTACT_NOT_DETECTED);
   } finally {
     restore();
   }
 });
 
-test('cheap electricity maps to CONTACT_DETECTED and expensive electricity maps to CONTACT_NOT_DETECTED', () => {
+test('cheap electricity maps to CONTACT_NOT_DETECTED and expensive electricity maps to CONTACT_DETECTED', () => {
   const contactState = {
     CONTACT_DETECTED,
     CONTACT_NOT_DETECTED,
@@ -338,11 +338,11 @@ test('cheap electricity maps to CONTACT_DETECTED and expensive electricity maps 
   const expensivePrice = 15;
 
   assert.equal(
-    (cheapPrice <= 10 ? contactState.CONTACT_DETECTED : contactState.CONTACT_NOT_DETECTED),
-    contactState.CONTACT_DETECTED,
+    (cheapPrice <= 10 ? contactState.CONTACT_NOT_DETECTED : contactState.CONTACT_DETECTED),
+    contactState.CONTACT_NOT_DETECTED,
   );
   assert.equal(
-    (expensivePrice <= 10 ? contactState.CONTACT_DETECTED : contactState.CONTACT_NOT_DETECTED),
-    contactState.CONTACT_NOT_DETECTED,
+    (expensivePrice <= 10 ? contactState.CONTACT_NOT_DETECTED : contactState.CONTACT_DETECTED),
+    contactState.CONTACT_DETECTED,
   );
 });

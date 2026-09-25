@@ -2,7 +2,7 @@
   "name": "homebridge-octopus-cheap-electricity",
   "displayName": "Octopus Energy",
   "type": "module",
-  "version": "0.1.4",
+  "version": "0.1.6",
   "description": "Homebridge plugin that exposes whether Octopus Energy electricity is below a configured price threshold.",
   "author": "Jack Appleyard",
   "license": "Apache-2.0",
@@ -34,6 +34,7 @@
   },
   "scripts": {
     "build": "rimraf ./dist && tsc",
+    "diagnose:octopus": "npm run build && node scripts/diagnose-octopus.mjs",
     "lint": "eslint . --max-warnings=0",
     "test": "npm run build && node --test test/*.test.mjs",
     "prepublishOnly": "npm run lint && npm run build",

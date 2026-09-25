@@ -41,7 +41,7 @@ export class OctopusEnergyAccessory {
     this.platform.log.debug(
       `Electricity price is ${price.toFixed(2)}p/kWh; ` +
       `threshold is ${this.platform.config.threshold.toFixed(2)}p/kWh; ` +
-      `state is ${isCheap ? 'OPEN / CONTACT_DETECTED (cheap)' : 'CLOSED / CONTACT_NOT_DETECTED (above threshold)'}.`,
+      `state is ${isCheap ? 'CLOSED / CONTACT_NOT_DETECTED (cheap)' : 'OPEN / CONTACT_DETECTED (above threshold)'}.`,
     );
   }
 

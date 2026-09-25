@@ -145,7 +145,7 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
   }
 
   private startUpdates(): void {
-    this.log.debug(
+    this.log.info(
       `Starting electricity updates every ${this.config.updateInterval} seconds.`,
     );
 
@@ -172,9 +172,9 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
     }
 
     this.updateInProgress = true;
-    this.log.debug('Starting electricity price update.');
+    this.log.info('Starting electricity price update.');
     try {
-      this.log.debug('Requesting the current Octopus electricity price.');
+      this.log.info('Requesting the current Octopus electricity price.');
       const currentPrice = await this.octopus.getCurrentPrice();
       const isCheap = isCheapPrice(currentPrice.priceIncVat, this.config.threshold);
 
@@ -182,7 +182,7 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
       this.accessoryHandler.markAvailable();
       this.lastSuccessfulUpdateAt = Date.now();
 
-      this.log.debug(
+      this.log.info(
         `Current Octopus electricity price: ${currentPrice.priceIncVat.toFixed(2)}p/kWh ` +
         `(tariff ${currentPrice.tariffCode}${currentPrice.ratePeriod
           ? `, ${currentPrice.ratePeriod}`

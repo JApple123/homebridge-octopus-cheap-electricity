@@ -1,6 +1,7 @@
 const API_BASE_URL = 'https://api.octopus.energy/v1';
 const GRAPHQL_URL = `${API_BASE_URL}/graphql/`;
 const INTELLIGENT_GO_SCHEDULE_CACHE_MS = 10 * 60 * 1000;
+const INTELLIGENT_GO_SCHEDULE_RETRY_MS = 10 * 60 * 1000;
 
 interface OctopusAgreement {
   tariff_code: string;
@@ -126,6 +127,7 @@ export class OctopusClient {
   private graphqlAuthenticationBlockedUntil = 0;
   private scheduleCache?: IntelligentGoScheduleCache;
   private scheduleRefreshPromise?: Promise<OctopusSmartFlexDispatch[]>;
+  private scheduleRetryAt = 0;
   private intelligentGoRateCache?: IntelligentGoRateCache;
 
   constructor(
@@ -270,7 +272,18 @@ export class OctopusClient {
       `Using Intelligent Go ${isNightRate ? 'overnight off-peak' : 'day'} rate; ` +
       `${isNightRate ? 'smart dispatch lookup is not required.' : 'checking for an active SMART dispatch.'}`,
     );
-    const smartDispatches = isNightRate ? [] : await this.getSmartDispatches(now);
+    let smartDispatches: OctopusSmartFlexDispatch[] = [];
+    if (!isNightRate) {
+      try {
+        smartDispatches = await this.getSmartDispatches(now);
+      } catch (error) {
+        this.scheduleRetryAt = Date.now() + INTELLIGENT_GO_SCHEDULE_RETRY_MS;
+        this.debugLog?.(
+          `Intelligent Go schedule unavailable; using the day rate until the next retry: ${error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
     const isSmartCharging = smartDispatches.some((dispatch) => {
       const start = new Date(dispatch.start).getTime();
       const end = new Date(dispatch.end).getTime();
@@ -304,6 +317,11 @@ export class OctopusClient {
     if (this.scheduleCache && now.getTime() < this.scheduleCache.expiresAt) {
       this.debugLog?.('Reusing cached Intelligent Go smart-charging schedule.');
       return this.scheduleCache.dispatches;
+    }
+
+    if (now.getTime() < this.scheduleRetryAt) {
+      this.debugLog?.('Skipping Intelligent Go schedule refresh during the retry cooldown.');
+      return [];
     }
 
     if (this.scheduleRefreshPromise) {

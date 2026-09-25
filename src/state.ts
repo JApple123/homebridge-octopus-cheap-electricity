@@ -9,6 +9,6 @@ export function contactSensorState(
   contactSensorState: typeof Characteristic.ContactSensorState,
 ): number {
   return isCheap
-    ? contactSensorState.CONTACT_DETECTED
-    : contactSensorState.CONTACT_NOT_DETECTED;
+    ? contactSensorState.CONTACT_NOT_DETECTED
+    : contactSensorState.CONTACT_DETECTED;
 }

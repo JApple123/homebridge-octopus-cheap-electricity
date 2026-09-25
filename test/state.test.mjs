@@ -15,13 +15,13 @@ test('prices at or below the threshold are cheap', () => {
   assert.equal(isCheapPrice(15.2, 10), false);
 });
 
-test('cheap state maps to Contact Sensor state', () => {
-  assert.equal(contactSensorState(true, contactStates), contactStates.CONTACT_DETECTED);
-  assert.equal(contactSensorState(false, contactStates), contactStates.CONTACT_NOT_DETECTED);
+test('cheap state maps to Contact Not Detected', () => {
+  assert.equal(contactSensorState(true, contactStates), contactStates.CONTACT_NOT_DETECTED);
+  assert.equal(contactSensorState(false, contactStates), contactStates.CONTACT_DETECTED);
 });
 
-test('closed means electricity is above the threshold', () => {
-  assert.equal(contactSensorState(isCheapPrice(15.2, 10), contactStates), contactStates.CONTACT_NOT_DETECTED);
+test('open means electricity is above the threshold', () => {
+  assert.equal(contactSensorState(isCheapPrice(15.2, 10), contactStates), contactStates.CONTACT_DETECTED);
 });
 
 test('configuration validation rejects missing credentials and invalid values', () => {

@@ -40,7 +40,7 @@
         "minimum": 0,
         "maximum": 500,
         "step": 0.1,
-        "description": "Measured in p/kWh including VAT. Contact Detected means the current price is at or below this threshold; Closed / Contact Not Detected means there is no cheap electricity because it is above the threshold."
+        "description": "Measured in p/kWh including VAT. Contact Not Detected means the current price is at or below this threshold; Open / Contact Detected means the price is above the threshold."
       },
       "updateInterval": {
         "title": "Update Interval (seconds)",

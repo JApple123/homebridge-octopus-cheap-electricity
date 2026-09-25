@@ -13,10 +13,10 @@ For example, with:
 
 the accessory will be:
 
-- Contact Detected when the current household electricity rate including VAT is `<= 10p/kWh`
-- Closed / Contact Not Detected when it is `> 10p/kWh`
+- Closed / Contact Not Detected when the current household electricity rate including VAT is `<= 10p/kWh`
+- Open / Contact Detected when it is `> 10p/kWh`
 
-The Contact Sensor is a read-only representation of an external state. Contact Detected means electricity is cheap. The plugin does not control your tariff or supply.
+The Contact Sensor is a read-only representation of an external state. Contact Not Detected means electricity is cheap. The plugin does not control your tariff or supply.
 
 The plugin currently uses Octopus Energy's REST API. It discovers the current import electricity tariff from the account endpoint unless a tariff code is supplied manually. It polls every five minutes by default and keeps Intelligent Go charging schedules cached for ten minutes.
 
@@ -56,7 +56,7 @@ Add the platform in Homebridge Config UI or use a configuration like this with f
 }
 ```
 
-`threshold` is the VAT-inclusive electricity price in p/kWh. Contact Detected means the current price is at or below the threshold. Closed / Contact Not Detected means there is no cheap electricity because the price is above the threshold.
+`threshold` is the VAT-inclusive electricity price in p/kWh. Contact Not Detected means the current price is at or below the threshold. Open / Contact Detected means the price is above the threshold.
 
 ## Development
 
