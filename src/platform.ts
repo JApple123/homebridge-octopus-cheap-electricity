@@ -41,6 +41,7 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
   private updateInProgress = false;
   private didFinishLaunching = false;
   private initialized = false;
+  private initializedAccessory?: PlatformAccessory;
 
   constructor(
     public readonly log: Logging,
@@ -82,6 +83,15 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
     this.accessories.set(accessory.UUID, accessory);
 
     if (this.didFinishLaunching) {
+      if (this.initializedAccessory?.UUID === accessory.UUID) {
+        if (this.initializedAccessory !== accessory) {
+          this.log.info('Replacing the provisional accessory with the cached accessory.');
+          this.accessoryHandler = new OctopusEnergyAccessory(this, accessory);
+          this.initializedAccessory = accessory;
+        }
+        return;
+      }
+
       this.initializeAccessory();
     }
   }
@@ -115,6 +125,12 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
         PLATFORM_NAME,
         [accessory],
       );
+
+      this.initializedAccessory = accessory;
+    }
+
+    if (!this.initializedAccessory) {
+      this.initializedAccessory = existingAccessory;
     }
 
     this.initialized = true;

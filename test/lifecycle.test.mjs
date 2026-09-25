@@ -139,6 +139,7 @@ function createHarness({ existingAccessory = null } = {}) {
   };
 
   const api = new EventEmitter();
+  let registrationCount = 0;
   api.hap = {
     Service,
     Characteristic,
@@ -147,7 +148,9 @@ function createHarness({ existingAccessory = null } = {}) {
     },
   };
   api.platformAccessory = MockPlatformAccessory;
-  api.registerPlatformAccessories = () => { };
+  api.registerPlatformAccessories = () => {
+    registrationCount += 1;
+  };
 
   const log = {
     debug: () => { },
@@ -172,6 +175,9 @@ function createHarness({ existingAccessory = null } = {}) {
     platform,
     api,
     timers,
+    get registrationCount() {
+      return registrationCount;
+    },
     restore() {
       globalThis.setInterval = originalSetInterval;
       globalThis.clearInterval = originalClearInterval;
@@ -184,7 +190,8 @@ async function flush() {
 }
 
 test('didFinishLaunching initializes a new accessory exactly once', async () => {
-  const { platform, api, timers, restore } = createHarness();
+  const harness = createHarness();
+  const { platform, api, timers, restore } = harness;
 
   try {
     let priceRequests = 0;
@@ -207,6 +214,7 @@ test('didFinishLaunching initializes a new accessory exactly once', async () => 
     assert.equal(priceRequests, 1);
     assert.equal(platform.accessories.size, 1);
     assert.equal(timers.length, 1);
+    assert.equal(harness.registrationCount, 1);
     assert.ok(platform.accessoryHandler);
   } finally {
     restore();
@@ -215,25 +223,69 @@ test('didFinishLaunching initializes a new accessory exactly once', async () => 
 
 test('a cached accessory is initialized on didFinishLaunching without duplicating services', async () => {
   const accessory = new MockPlatformAccessory('Cheap Electricity', 'cached-uuid');
-  const { platform, api, restore } = createHarness({ existingAccessory: accessory });
+  const harness = createHarness({ existingAccessory: accessory });
+  const { platform, api, timers, restore } = harness;
 
   try {
-    platform.octopus.getCurrentPrice = async () => ({
-      priceIncVat: 7.5,
-      priceExcVat: 7.14,
-      validFrom: new Date(),
-      validTo: null,
-      tariffCode: 'E-1R-SUPPLY-1',
-    });
+    let priceRequests = 0;
+    platform.octopus.getCurrentPrice = async () => {
+      priceRequests += 1;
+      return {
+        priceIncVat: 7.5,
+        priceExcVat: 7.14,
+        validFrom: new Date(),
+        validTo: null,
+        tariffCode: 'E-1R-SUPPLY-1',
+      };
+    };
 
+    platform.configureAccessory(accessory);
     api.emit('didFinishLaunching');
-    await platform.updateState();
+    await flush();
 
     const service = accessory.getService('ContactSensor');
     assert.ok(service);
     assert.equal(service.characteristics.get(CONTACT_SENSOR_STATE).value, CONTACT_DETECTED);
     assert.equal(service.characteristics.get(STATUS_FAULT).value, 0);
+    assert.equal(priceRequests, 1);
     assert.equal(platform.accessories.size, 1);
+    assert.equal(timers.length, 1);
+  } finally {
+    restore();
+  }
+});
+
+test('a cached accessory delivered after didFinishLaunching replaces the provisional accessory without restarting updates', async () => {
+  const harness = createHarness();
+  const { platform, api, timers, restore } = harness;
+
+  try {
+    let priceRequests = 0;
+    platform.octopus.getCurrentPrice = async () => {
+      priceRequests += 1;
+      return {
+        priceIncVat: 7.5,
+        priceExcVat: 7.14,
+        validFrom: new Date(),
+        validTo: null,
+        tariffCode: 'E-1R-SUPPLY-1',
+      };
+    };
+
+    api.emit('didFinishLaunching');
+    await flush();
+
+    const cachedAccessory = new MockPlatformAccessory('Cheap Electricity', 'generated-uuid');
+    platform.configureAccessory(cachedAccessory);
+    platform.configureAccessory(cachedAccessory);
+    await flush();
+
+    assert.equal(priceRequests, 1);
+    assert.equal(platform.accessories.size, 1);
+    assert.equal(timers.length, 1);
+    assert.equal(harness.registrationCount, 1);
+    assert.ok(platform.accessoryHandler);
+    assert.ok(cachedAccessory.getService('ContactSensor'));
   } finally {
     restore();
   }
