@@ -2,7 +2,7 @@
 
 A Homebridge plugin for Octopus Energy customers in the UK.
 
-The plugin exposes a single HomeKit **Contact Sensor** whose state represents whether the household electricity rate is at or below a configured threshold.
+The plugin exposes a single HomeKit Contact Sensor whose state represents whether the household electricity rate is at or below a configured threshold.
 
 ## Current behaviour
 
@@ -13,10 +13,10 @@ For example, with:
 
 the accessory will be:
 
-- **Contact Detected** when the current household electricity rate including VAT is `<= 10p/kWh`
-- **Closed / Contact Not Detected** when it is `> 10p/kWh`
+- Contact Detected when the current household electricity rate including VAT is `<= 10p/kWh`
+- Closed / Contact Not Detected when it is `> 10p/kWh`
 
-The Contact Sensor is a **read-only representation of an external state**. Contact Detected means electricity is cheap. The plugin does not control your tariff or supply.
+The Contact Sensor is a read-only representation of an external state. Contact Detected means electricity is cheap. The plugin does not control your tariff or supply.
 
 The plugin currently uses Octopus Energy's REST API. It discovers the current import electricity tariff from the account endpoint unless a tariff code is supplied manually.
 
