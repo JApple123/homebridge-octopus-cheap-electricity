@@ -2,7 +2,11 @@ node_modules/
 dist/
 *.log
 *.tgz
+.env
+.homebridge/
 .DS_Store
 .vscode/*
 !.vscode/extensions.json
 test/hbConfig/config.json
+test/hbConfig/accessories/
+test/hbConfig/persist/

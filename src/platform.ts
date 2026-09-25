@@ -39,6 +39,8 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
   private updateTimer?: NodeJS.Timeout;
   private lastSuccessfulUpdateAt?: number;
   private updateInProgress = false;
+  private didFinishLaunching = false;
+  private initialized = false;
 
   constructor(
     public readonly log: Logging,
@@ -65,25 +67,34 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
     );
 
     this.api.on('didFinishLaunching', () => {
+      this.didFinishLaunching = true;
       this.log.debug('Homebridge finished launching; discovering Octopus Energy accessory.');
-      this.discoverAccessory();
+      this.initializeAccessory();
     });
 
     this.api.on('shutdown', () => {
-      if (this.updateTimer) {
-        clearInterval(this.updateTimer);
-      }
+      this.stopUpdates();
     });
   }
 
   configureAccessory(accessory: PlatformAccessory): void {
     this.log.info('Loading accessory from cache:', accessory.displayName);
     this.accessories.set(accessory.UUID, accessory);
+
+    if (this.didFinishLaunching) {
+      this.initializeAccessory();
+    }
   }
 
-  private discoverAccessory(): void {
+  private initializeAccessory(): void {
+    if (!this.didFinishLaunching || this.initialized) {
+      return;
+    }
+
     const uuid = this.api.hap.uuid.generate(`${PLUGIN_NAME}:cheap-energy`);
-    this.discoveredCacheUUIDs.push(uuid);
+    if (!this.discoveredCacheUUIDs.includes(uuid)) {
+      this.discoveredCacheUUIDs.push(uuid);
+    }
 
     const existingAccessory = this.accessories.get(uuid);
 
@@ -95,6 +106,7 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
 
       const accessory = new this.api.platformAccessory(this.config.name, uuid);
       accessory.context.type = 'cheap-energy';
+      this.accessories.set(uuid, accessory);
 
       this.accessoryHandler = new OctopusEnergyAccessory(this, accessory);
 
@@ -105,7 +117,15 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
       );
     }
 
+    this.initialized = true;
     this.startUpdates();
+  }
+
+  private stopUpdates(): void {
+    if (this.updateTimer) {
+      clearInterval(this.updateTimer);
+      this.updateTimer = undefined;
+    }
   }
 
   private startUpdates(): void {
@@ -113,9 +133,7 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
       `Starting electricity updates every ${this.config.updateInterval} seconds.`,
     );
 
-    if (this.updateTimer) {
-      clearInterval(this.updateTimer);
-    }
+    this.stopUpdates();
 
     void this.updateState();
 
