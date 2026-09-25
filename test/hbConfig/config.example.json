@@ -1,0 +1,19 @@
+{
+  "bridge": {
+    "name": "Octopus Energy Development",
+    "username": "0E:12:34:56:78:9A",
+    "port": 51827,
+    "pin": "031-45-154"
+  },
+  "accessories": [],
+  "platforms": [
+    {
+      "name": "Cheap Electricity",
+      "platform": "OctopusEnergy",
+      "apiKey": "YOUR_API_KEY",
+      "accountNumber": "A-XXXXXXXX",
+      "threshold": 10,
+      "updateInterval": 60
+    }
+  ]
+}

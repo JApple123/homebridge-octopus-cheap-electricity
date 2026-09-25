@@ -1,0 +1,63 @@
+{
+  "pluginAlias": "OctopusEnergy",
+  "pluginType": "platform",
+  "singular": true,
+  "strictValidation": false,
+  "schema": {
+    "type": "object",
+    "required": [
+      "name",
+      "apiKey",
+      "accountNumber",
+      "threshold"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "name": {
+        "title": "Accessory Name",
+        "type": "string",
+        "default": "Cheap Electricity",
+        "minLength": 1
+      },
+      "apiKey": {
+        "title": "Octopus Energy API Key",
+        "type": "string",
+        "required": true,
+        "minLength": 1,
+        "format": "password"
+      },
+      "accountNumber": {
+        "title": "Octopus Energy Account Number",
+        "type": "string",
+        "required": true,
+        "placeholder": "A-12345678",
+        "pattern": "^A-[A-Za-z0-9]+$"
+      },
+      "threshold": {
+        "title": "Cheap Electricity Threshold (p/kWh)",
+        "type": "number",
+        "default": 10,
+        "minimum": 0,
+        "maximum": 500,
+        "step": 0.1,
+        "description": "Measured in p/kWh including VAT. Contact Detected means the current price is at or below this threshold; Closed / Contact Not Detected means there is no cheap electricity because it is above the threshold."
+      },
+      "updateInterval": {
+        "title": "Update Interval (seconds)",
+        "type": "integer",
+        "default": 60,
+        "minimum": 30,
+        "maximum": 3600,
+        "step": 30,
+        "description": "How often to check Octopus Energy, in seconds. The minimum is 30 seconds."
+      },
+      "tariffCode": {
+        "title": "Tariff Code (optional)",
+        "type": "string",
+        "required": false,
+        "placeholder": "E-1R-GO-VAR-22-10-14-A",
+        "description": "Leave blank to discover the current import electricity tariff from your account."
+      }
+    }
+  }
+}
