@@ -38,6 +38,7 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
   private accessoryHandler?: OctopusEnergyAccessory;
   private updateTimer?: NodeJS.Timeout;
   private lastSuccessfulUpdateAt?: number;
+  private updateInProgress = false;
 
   constructor(
     public readonly log: Logging,
@@ -108,6 +109,10 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
   }
 
   private startUpdates(): void {
+    this.log.debug(
+      `Starting electricity updates every ${this.config.updateInterval} seconds.`,
+    );
+
     if (this.updateTimer) {
       clearInterval(this.updateTimer);
     }
@@ -121,15 +126,21 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
     }, this.config.updateInterval * 1000);
   }
 
-  private updateInProgress = false;
-
   private async updateState(): Promise<void> {
-    if (!this.accessoryHandler || this.updateInProgress) {
+    if (!this.accessoryHandler) {
+      this.log.debug('Skipping electricity update because the accessory is not ready.');
+      return;
+    }
+
+    if (this.updateInProgress) {
+      this.log.debug('Skipping electricity update because the previous update is still running.');
       return;
     }
 
     this.updateInProgress = true;
+    this.log.debug('Starting electricity price update.');
     try {
+      this.log.debug('Requesting the current Octopus electricity price.');
       const currentPrice = await this.octopus.getCurrentPrice();
       const isCheap = isCheapPrice(currentPrice.priceIncVat, this.config.threshold);
 
@@ -144,7 +155,6 @@ export class OctopusEnergyPlatform implements DynamicPlatformPlugin {
           : ''}).`,
       );
     } catch (error) {
-      this.accessoryHandler.setUnavailableState();
       this.accessoryHandler.markUnavailable();
 
       const stateAge = this.lastSuccessfulUpdateAt

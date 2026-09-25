@@ -1,18 +1,18 @@
 {
-  "name": "homebridge-octopus-energy",
+  "name": "homebridge-octopus-cheap-electricity",
   "displayName": "Octopus Energy",
   "type": "module",
   "version": "0.1.1",
   "description": "Homebridge plugin that exposes whether Octopus Energy electricity is below a configured price threshold.",
   "author": "Jack Appleyard",
   "license": "Apache-2.0",
-  "homepage": "https://github.com/JApple123/homebridge-octopus-energy#readme",
+  "homepage": "https://github.com/JApple123/homebridge-octopus-cheap-electricity#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JApple123/homebridge-octopus-energy.git"
+    "url": "git+https://github.com/JApple123/homebridge-octopus-cheap-electricity.git"
   },
   "bugs": {
-    "url": "https://github.com/JApple123/homebridge-octopus-energy/issues"
+    "url": "https://github.com/JApple123/homebridge-octopus-cheap-electricity/issues"
   },
   "keywords": [
     "homebridge-plugin",

@@ -34,7 +34,7 @@ The plugin requires Node.js 22+ and Homebridge 1.8+.
 Install the published plugin globally:
 
 ```bash
-npm install -g homebridge-octopus-energy
+npm install -g homebridge-octopus-cheap-electricity
 ```
 
 ## Configuration
@@ -63,8 +63,8 @@ Add the platform in Homebridge Config UI or use a configuration like this with f
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/JApple123/homebridge-octopus-energy.git
-cd homebridge-octopus-energy
+git clone https://github.com/JApple123/homebridge-octopus-cheap-electricity.git
+cd homebridge-octopus-cheap-electricity
 npm install
 ```
 

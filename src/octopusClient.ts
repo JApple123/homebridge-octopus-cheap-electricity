@@ -87,6 +87,17 @@ interface IntelligentGoScheduleCache {
   expiresAt: number;
 }
 
+interface IntelligentGoRateCache {
+  productCode: string;
+  postcode: string;
+  tariffCode: string;
+  dayRate: number;
+  nightRate: number;
+  preVatDayRate?: number;
+  preVatNightRate?: number;
+  expiresAt: number;
+}
+
 type IntelligentGoRatePeriod = 'day' | 'overnight off-peak' | 'smart charging';
 
 export interface CurrentEnergyPrice {
@@ -115,6 +126,7 @@ export class OctopusClient {
   private graphqlAuthenticationBlockedUntil = 0;
   private scheduleCache?: IntelligentGoScheduleCache;
   private scheduleRefreshPromise?: Promise<OctopusSmartFlexDispatch[]>;
+  private intelligentGoRateCache?: IntelligentGoRateCache;
 
   constructor(
     private readonly apiKey: string,
@@ -132,6 +144,7 @@ export class OctopusClient {
   async getCurrentPrice(): Promise<CurrentEnergyPrice> {
     const tariffCode = await this.getTariffCode();
     const productCode = this.getProductCode(tariffCode);
+    this.debugLog?.(`Using import tariff ${tariffCode} and product ${productCode}.`);
 
     // The REST standard-unit-rates endpoint exposes the standard (day) rate
     // for Octopus's newer four-rate Intelligent Go tariffs. Their household
@@ -186,49 +199,77 @@ export class OctopusClient {
     now: Date,
   ): Promise<CurrentEnergyPrice> {
     const postcode = await this.getPostcode(tariffCode);
-    const query = `query EnergyProduct($code: String!, $postcode: String!) {
-      energyProduct(code: $code) {
-        tariffs(postcode: $postcode, first: 100) {
-          edges {
-            node {
-              __typename
-              ... on FourRateEvTariff {
-                tariffCode
-                dayRate
-                nightRate
-                preVatDayRate
-                preVatNightRate
+    let rates = this.intelligentGoRateCache;
+    if (!rates
+      || rates.productCode !== productCode
+      || rates.postcode !== postcode
+      || rates.tariffCode !== tariffCode
+      || now.getTime() >= rates.expiresAt) {
+      const query = `query EnergyProduct($code: String!, $postcode: String!) {
+        energyProduct(code: $code) {
+          tariffs(postcode: $postcode, first: 100) {
+            edges {
+              node {
+                __typename
+                ... on FourRateEvTariff {
+                  tariffCode
+                  dayRate
+                  nightRate
+                  preVatDayRate
+                  preVatNightRate
+                }
               }
             }
           }
         }
+      }`;
+
+      const response = await this.requestGraphql<OctopusEnergyProductResponse>(query, {
+        code: productCode,
+        postcode,
+      });
+
+      if (response.errors?.length) {
+        throw new OctopusApiError(
+          `Octopus GraphQL API could not read Intelligent Go rates: ${response.errors
+            .map((error) => error.message ?? 'Unknown GraphQL error')
+            .join('; ')}`,
+        );
       }
-    }`;
 
-    const response = await this.requestGraphql<OctopusEnergyProductResponse>(query, {
-      code: productCode,
-      postcode,
-    });
+      const tariff = response.data?.energyProduct?.tariffs?.edges
+        ?.map((edge) => edge.node)
+        .find((node) => node?.tariffCode === tariffCode);
 
-    if (response.errors?.length) {
-      throw new OctopusApiError(
-        `Octopus GraphQL API could not read Intelligent Go rates: ${response.errors
-          .map((error) => error.message ?? 'Unknown GraphQL error')
-          .join('; ')}`,
-      );
-    }
+      if (tariff?.__typename !== 'FourRateEvTariff'
+        || tariff.dayRate == null
+        || tariff.nightRate == null) {
+        throw new OctopusApiError(
+          `Octopus did not return four-rate day and night prices for Intelligent Go tariff ${tariffCode}.`,
+        );
+      }
 
-    const tariff = response.data?.energyProduct?.tariffs?.edges
-      ?.map((edge) => edge.node)
-      .find((node) => node?.tariffCode === tariffCode);
-
-    if (tariff?.__typename !== 'FourRateEvTariff' || tariff.dayRate == null || tariff.nightRate == null) {
-      throw new OctopusApiError(
-        `Octopus did not return four-rate day and night prices for Intelligent Go tariff ${tariffCode}.`,
-      );
+      rates = {
+        productCode,
+        postcode,
+        tariffCode,
+        dayRate: tariff.dayRate,
+        nightRate: tariff.nightRate,
+        preVatDayRate: tariff.preVatDayRate ?? undefined,
+        preVatNightRate: tariff.preVatNightRate ?? undefined,
+        expiresAt: now.getTime() + INTELLIGENT_GO_SCHEDULE_CACHE_MS,
+      };
+      this.intelligentGoRateCache = rates;
+      this.debugLog?.('Refreshed the Intelligent Go product-rate cache.');
+    } else {
+      this.debugLog?.('Reusing cached Intelligent Go product rates.');
     }
 
     const isNightRate = this.isIntelligentGoHomeOffPeak(now);
+    this.debugLog?.(
+      `Using Intelligent Go ${isNightRate ? 'overnight off-peak' : 'day'} rate; ` +
+      `${isNightRate ? 'smart dispatch lookup is not required.' : 'checking for an active SMART dispatch.'}`,
+    );
     const smartDispatches = isNightRate ? [] : await this.getSmartDispatches(now);
     const isSmartCharging = smartDispatches.some((dispatch) => {
       const start = new Date(dispatch.start).getTime();
@@ -240,10 +281,10 @@ export class OctopusClient {
         && now.getTime() < end;
     });
     const useNightRate = isSmartCharging || isNightRate;
-    const priceIncVat = useNightRate ? tariff.nightRate : tariff.dayRate;
+    const priceIncVat = useNightRate ? rates.nightRate : rates.dayRate;
     const priceExcVat = useNightRate
-      ? tariff.preVatNightRate
-      : tariff.preVatDayRate;
+      ? rates.preVatNightRate
+      : rates.preVatDayRate;
 
     return {
       priceIncVat,
@@ -499,7 +540,10 @@ export class OctopusClient {
     const token = await this.getGraphqlAccessToken();
     const response = await this.fetchJson<OctopusGraphqlResponse<T>>(GRAPHQL_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: token },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ query, variables }),
     });
     return response;

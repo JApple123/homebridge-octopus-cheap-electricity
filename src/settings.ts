@@ -6,4 +6,4 @@ export const PLATFORM_NAME = 'OctopusEnergy';
 /**
  * Must match package.json `name`.
  */
-export const PLUGIN_NAME = 'homebridge-octopus-energy';
+export const PLUGIN_NAME = 'homebridge-octopus-cheap-electricity';
