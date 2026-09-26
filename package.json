@@ -2,7 +2,7 @@
   "name": "homebridge-octopus-cheap-electricity",
   "displayName": "Octopus Energy",
   "type": "module",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Homebridge plugin that exposes whether Octopus Energy electricity is below a configured price threshold.",
   "author": "Jack Appleyard",
   "license": "Apache-2.0",
