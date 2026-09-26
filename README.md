@@ -18,7 +18,7 @@ the accessory will be:
 
 The Contact Sensor is a read-only representation of an external state. Contact Not Detected means electricity is cheap. The plugin does not control your tariff or supply.
 
-The plugin currently uses Octopus Energy's REST API. It discovers the current import electricity tariff from the account endpoint unless a tariff code is supplied manually. It polls every five minutes by default and keeps Intelligent Go charging schedules cached for ten minutes.
+The plugin uses Octopus Energy's REST and GraphQL APIs. It discovers the current import electricity tariff from the account endpoint unless a tariff code is supplied manually. It polls every five minutes by default and caches Intelligent Go charging schedules for up to one minute, allowing newly assigned smart-charging slots to be picked up on a subsequent price poll.
 
 ## Requirements
 

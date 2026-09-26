@@ -45,7 +45,7 @@ function jsonResponse(body, status = 200) {
 
 function installClock() {
   const originalDate = globalThis.Date;
-  const fixedTime = new originalDate('2026-09-25T12:00:00Z');
+  let fixedTime = new originalDate('2026-09-25T12:00:00Z');
 
   class FixedDate extends originalDate {
     constructor(...args) {
@@ -58,9 +58,13 @@ function installClock() {
   }
 
   globalThis.Date = FixedDate;
-  return () => {
+  const restore = () => {
     globalThis.Date = originalDate;
   };
+  restore.advance = (milliseconds) => {
+    fixedTime = new originalDate(fixedTime.getTime() + milliseconds);
+  };
+  return restore;
 }
 
 function installFetch(handler) {
@@ -81,7 +85,11 @@ function installFetch(handler) {
   };
 }
 
-function graphqlResponse(body) {
+function graphqlResponse(body, dispatches = [{
+  start: '2026-09-25T11:00:00Z',
+  end: '2026-09-25T13:00:00Z',
+  type: 'SMART',
+}]) {
   const query = body?.query ?? '';
   if (query.includes('obtainKrakenToken')) {
     return jsonResponse({
@@ -107,11 +115,7 @@ function graphqlResponse(body) {
   if (query.includes('flexPlannedDispatches')) {
     return jsonResponse({
       data: {
-        flexPlannedDispatches: [{
-          start: '2026-09-25T11:00:00Z',
-          end: '2026-09-25T13:00:00Z',
-          type: 'SMART',
-        }],
+        flexPlannedDispatches: dispatches,
       },
     });
   }
@@ -166,6 +170,38 @@ test('missing Intelligent Go schedule data falls back to the day rate and is cac
     assert.equal(firstPrice.ratePeriod, 'day');
     assert.equal(secondPrice.priceIncVat, 24);
     assert.equal(fetchHarness.requests.length, 4);
+  } finally {
+    fetchHarness.restore();
+    restoreClock();
+  }
+});
+
+test('newly assigned Intelligent Go slots are picked up after the short schedule cache expires', async () => {
+  const restoreClock = installClock();
+  let dispatches = [];
+  const fetchHarness = installFetch((input, body) => {
+    if (input.includes('/accounts/')) {
+      return jsonResponse(accountResponse);
+    }
+    return graphqlResponse(body, dispatches);
+  });
+
+  try {
+    const client = createClient();
+    const initialPrice = await client.getCurrentPrice();
+    assert.equal(initialPrice.priceIncVat, 24);
+    assert.equal(initialPrice.ratePeriod, 'day');
+
+    dispatches = [{
+      start: '2026-09-25T11:00:00Z',
+      end: '2026-09-25T13:00:00Z',
+      type: 'SMART',
+    }];
+    restoreClock.advance(61 * 1000);
+
+    const updatedPrice = await client.getCurrentPrice();
+    assert.equal(updatedPrice.priceIncVat, 8);
+    assert.equal(updatedPrice.ratePeriod, 'smart charging');
   } finally {
     fetchHarness.restore();
     restoreClock();

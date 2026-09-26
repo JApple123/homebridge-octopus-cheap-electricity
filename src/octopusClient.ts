@@ -1,7 +1,7 @@
 const API_BASE_URL = 'https://api.octopus.energy/v1';
 const GRAPHQL_URL = `${API_BASE_URL}/graphql/`;
-const INTELLIGENT_GO_SCHEDULE_CACHE_MS = 10 * 60 * 1000;
-const INTELLIGENT_GO_SCHEDULE_RETRY_MS = 10 * 60 * 1000;
+const INTELLIGENT_GO_SCHEDULE_CACHE_MS = 60 * 1000;
+const INTELLIGENT_GO_SCHEDULE_RETRY_MS = 60 * 1000;
 
 interface OctopusAgreement {
   tariff_code: string;
