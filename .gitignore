@@ -3,6 +3,8 @@ dist/
 *.log
 *.tgz
 .env
+.env.*
+!.env.example
 .homebridge/
 .DS_Store
 .vscode/*
